@@ -73,10 +73,12 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         IERC20(_letter._payInfo._token).transferFrom(msg.sender, _letter._sender, _letter._payInfo._amount);
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
-            Annex memory _annex = annex[abi.encodePacked(_id, _i)];
+            bytes memory _annexId = abi.encodePacked(_id, _i);
+            Annex memory _annex = annex[_annexId];
             if (_annex._type == 1) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
             if (_annex._type == 2) IERC721(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id);
             if (_annex._type == 3) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
+            delete annex[_annexId];
         }
         emit Claim(_id);
     }
@@ -90,10 +92,12 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         require(_letter._deadline > block.timestamp, "PostOffice: The letter has not expired yet");
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
-            Annex memory _annex = annex[abi.encodePacked(_id, _i)];
+            bytes memory _annexId = abi.encodePacked(_id, _i);
+            Annex memory _annex = annex[_annexId];
             if (_annex._type == 1) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
             if (_annex._type == 2) IERC721(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id);
             if (_annex._type == 3) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
+            delete annex[_annexId];
         }
         emit TimeoutClaim(_id);
     }
