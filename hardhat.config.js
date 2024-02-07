@@ -18,6 +18,11 @@ module.exports = {
   networks: {
     hardhat: {
     },
+    sepolia: {
+      url: 'https://rpc2.sepolia.org/',
+      accounts: [`${privateKey}`],
+      chainId: 11155111,
+    },
   },
   solidity: {
     compilers: [

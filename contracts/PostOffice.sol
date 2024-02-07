@@ -11,12 +11,10 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
 contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
+    uint8 public constant ETH_TYPE = 0;
     uint8 public constant ERC20_TYPE = 1;
     uint8 public constant ERC721_TYPE = 2;
     uint8 public constant ERC1155_TYPE = 3;
-
-    bytes4 public constant ERC721_ID = 0x80ac58cd;
-    bytes4 public constant ERC1155_ID = 0xd9b67a26;
 
     event SendLetter(bytes32 _letterId, address _sender, address _receiver);
     event Claim(bytes32 _letterId);
@@ -47,13 +45,14 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
 
     function initialize() public initializer {}
 
-    function sendLetter(Annex[] memory _annex, PayInfo memory _payInfo, address _receiver, uint256 _deadline) external returns (bytes32 _letterId) {
+    function sendLetter(Annex[] memory _annex, PayInfo memory _payInfo, address _receiver, uint256 _deadline) external payable returns (bytes32 _letterId) {
         _letterId = buildId(_annex, _payInfo, _receiver, _deadline);
 
         for (uint256 _i = 0; _i < _annex.length; _i++) {
-            if (_annex[_i]._type == 1) IERC20(_annex[_i]._address).transferFrom(msg.sender, address(this), _annex[_i]._amount);
-            if (_annex[_i]._type == 2) IERC721(_annex[_i]._address).transferFrom(msg.sender, address(this), _annex[_i]._id);
-            if (_annex[_i]._type == 3) IERC1155(_annex[_i]._address).safeTransferFrom(msg.sender, address(this), _annex[_i]._id, _annex[_i]._amount, new bytes(0));
+            if (_annex[_i]._type == ETH_TYPE) require(msg.value >= _annex[_i]._amount, "PostOffice: Insufficient amount of eth");
+            if (_annex[_i]._type == ERC20_TYPE) IERC20(_annex[_i]._address).transferFrom(msg.sender, address(this), _annex[_i]._amount);
+            if (_annex[_i]._type == ERC721_TYPE) IERC721(_annex[_i]._address).transferFrom(msg.sender, address(this), _annex[_i]._id);
+            if (_annex[_i]._type == ERC1155_TYPE) IERC1155(_annex[_i]._address).safeTransferFrom(msg.sender, address(this), _annex[_i]._id, _annex[_i]._amount, new bytes(0));
             annex[abi.encodePacked(_letterId, _i)] = _annex[_i];
         }
 
@@ -75,9 +74,10 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
             bytes memory _annexId = abi.encodePacked(_id, _i);
             Annex memory _annex = annex[_annexId];
-            if (_annex._type == 1) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
-            if (_annex._type == 2) IERC721(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id);
-            if (_annex._type == 3) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
+            if (_annex._type == ETH_TYPE) payable(msg.sender).transfer(_annex._amount);
+            if (_annex._type == ERC20_TYPE) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
+            if (_annex._type == ERC721_TYPE) IERC721(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id);
+            if (_annex._type == ERC1155_TYPE) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
             delete annex[_annexId];
         }
         emit Claim(_id);
@@ -94,9 +94,10 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
             bytes memory _annexId = abi.encodePacked(_id, _i);
             Annex memory _annex = annex[_annexId];
-            if (_annex._type == 1) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
-            if (_annex._type == 2) IERC721(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id);
-            if (_annex._type == 3) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
+            if (_annex._type == ETH_TYPE) payable(msg.sender).transfer(_annex._amount);
+            if (_annex._type == ERC20_TYPE) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
+            if (_annex._type == ERC721_TYPE) IERC721(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id);
+            if (_annex._type == ERC1155_TYPE) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
             delete annex[_annexId];
         }
         emit TimeoutClaim(_id);
