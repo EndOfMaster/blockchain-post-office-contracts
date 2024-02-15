@@ -41,7 +41,7 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
     }
 
     mapping(bytes32 => Letter) public letters;
-    mapping(bytes => Annex) annex;
+    mapping(bytes => Annex) public annex;
 
     function initialize() public initializer {}
 

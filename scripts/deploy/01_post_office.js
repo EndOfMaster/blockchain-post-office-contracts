@@ -5,12 +5,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     const { deployer } = await getNamedAccounts();
     const chainId = (await getChainId()).toString();
 
-    let implAddress;
-    try {
-        implAddress = (await deployments.get('RouterImpl')).address
-    } catch (error) {
-    }
-
     let impl = await deploy('PostOfficeImpl', {
         from: deployer,
         contract: 'PostOffice',
@@ -33,18 +27,24 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     const ProxyAdmin = await hre.ethers.getContractFactory("ProxyAdmin");
     const proxyAdmin = ProxyAdmin.attach(proxyAdminAddress);
 
-    await deploy('PostOffice', {
+    let proxy = await deploy('PostOffice', {
         from: deployer,
         contract: 'MyTransparentUpgradeableProxy',
         args: [impl.address, proxyAdminAddress, postOfficeProxyData],
         log: true,
         skipIfAlreadyDeployed: true,
     });
+    const proxyAddress = proxy.address;
+    const MyTransparentUpgradeableProxy = await ethers.getContractFactory('MyTransparentUpgradeableProxy')
+    proxy = MyTransparentUpgradeableProxy.attach(proxy.address);
 
-    if (implAddress !== ethers.AddressZero && implAddress !== impl.address) {
-        await proxyAdmin.upgrade(router.address, impl.address);
-        console.log("upgrade Post Office impl done");
-    }
+    let implAddress = await proxy.implementation();
+
+    //BUG Unknown error. Check the call chain and find that the old impl address will be called.
+    // if (implAddress !== ethers.AddressZero && implAddress !== impl.address) {
+    //     await proxyAdmin.upgradeAndCall(proxyAddress, impl.address, postOfficeProxyData);
+    //     console.log("upgrade Post Office impl done");
+    // }
 
 };
 module.exports.tags = ['PostOffice'];
