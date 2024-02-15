@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./lib/BlastReward.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
+contract PostOffice is ERC721Holder, ERC1155Holder, BlastReward {
     uint8 public constant ETH_TYPE = 0;
     uint8 public constant ERC20_TYPE = 1;
     uint8 public constant ERC721_TYPE = 2;
@@ -43,7 +43,10 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
     mapping(bytes32 => Letter) public letters;
     mapping(bytes => Annex) public annex;
 
-    function initialize() public initializer {}
+    function initialize() public override initializer {
+        __Ownable_init(msg.sender);
+        super.initialize();
+    }
 
     function sendLetter(Annex[] memory _annex, PayInfo memory _payInfo, address _receiver, uint256 _deadline) external payable returns (bytes32 _letterId) {
         _letterId = buildId(_annex, _payInfo, _receiver, _deadline);

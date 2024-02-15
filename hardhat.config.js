@@ -23,6 +23,11 @@ module.exports = {
       accounts: [`${privateKey}`],
       chainId: 11155111,
     },
+    blast: {
+      url: 'https://sepolia.blast.io',
+      accounts: [`${privateKey}`],
+      chainId: 168587773,
+    },
   },
   solidity: {
     compilers: [
