@@ -27,26 +27,55 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         uint256 _id;
     }
 
-    struct PayInfo {
-        address _token;
-        uint256 _amount;
-    }
-
     struct Letter {
         address _sender;
         address _receiver;
         uint256 _annexAmount;
-        PayInfo _payInfo;
         uint256 _deadline;
+        string _message;
+        string _secretWords;
+        string _password;
     }
 
-    mapping(bytes32 => Letter) public letters;
-    mapping(bytes => Annex) public annex;
+    mapping(bytes32 => Letter) private letters;
+    mapping(string => bytes32) private passwords;
+    mapping(bytes => Annex) private annex;
 
     function initialize() public initializer {}
 
-    function sendLetter(Annex[] memory _annex, PayInfo memory _payInfo, address _receiver, uint256 _deadline) external payable returns (bytes32 _letterId) {
-        _letterId = buildId(_annex, _payInfo, _receiver, _deadline);
+    // ================== view function ==================
+
+    function letterPublicParams(bytes32 _letterId) external view returns (address _sender, address _receiver, string memory _message) {
+        Letter memory _letter = letters[_letterId];
+        _sender = _letter._sender;
+        _receiver = _letter._receiver;
+        _message = _letter._message;
+    }
+
+    function letterAllParams(string memory _password) external view returns (Letter memory _letter, Annex[] memory _annexes) {
+        bytes32 _id = passwords[_password];
+        if (_id == bytes32(0)) return (_letter, _annexes);
+
+        _letter = letters[_id];
+
+        _annexes = new Annex[](_letter._annexAmount);
+        for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
+            _annexes[_i] = annex[abi.encodePacked(_id, _i)];
+        }
+    }
+
+    // ================== non-view function ==================
+
+    function sendLetter(
+        Annex[] memory _annex,
+        string memory _message,
+        string memory _secretWords,
+        string memory _password,
+        address _receiver,
+        uint256 _deadline
+    ) external payable returns (bytes32 _letterId) {
+        require(passwords[_password] == bytes32(0), "PostOffice: Already exists");
+        _letterId = buildId(_annex, _message, _secretWords, _password, _receiver, _deadline);
 
         bytes[] memory _keys = new bytes[](_annex.length);
 
@@ -60,19 +89,29 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
             _keys[_i] = _annexKey;
         }
 
-        Letter memory _letter = Letter({ _sender: msg.sender, _annexAmount: _annex.length, _receiver: _receiver, _payInfo: _payInfo, _deadline: _deadline });
+        Letter memory _letter = Letter({
+            _sender: msg.sender,
+            _annexAmount: _annex.length,
+            _receiver: _receiver,
+            _message: _message,
+            _secretWords: _secretWords,
+            _password: _password,
+            _deadline: _deadline
+        });
         letters[_letterId] = _letter;
         emit SendLetter(_letterId, msg.sender, _receiver, _keys);
     }
 
-    function claim(bytes32 _id) external {
+    function claim(string memory _password) external {
+        bytes32 _id = passwords[_password];
+        require(_id != bytes32(0), "PostOffice: This vault does not exist");
+
         Letter memory _letter = letters[_id];
         delete letters[_id];
+        delete passwords[_password];
 
         require(_letter._receiver == msg.sender, "PostOffice: You are not the recipient");
         require(_letter._deadline > block.timestamp, "PostOffice: Letter has timed out");
-
-        IERC20(_letter._payInfo._token).transferFrom(msg.sender, _letter._sender, _letter._payInfo._amount);
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
             bytes memory _annexId = abi.encodePacked(_id, _i);
@@ -86,9 +125,13 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         emit Claim(_id);
     }
 
-    function timeoutClaim(bytes32 _id) external {
+    function timeoutClaim(string memory _password) external {
+        bytes32 _id = passwords[_password];
+        require(_id != bytes32(0), "PostOffice: This vault does not exist");
+
         Letter memory _letter = letters[_id];
         delete letters[_id];
+        delete passwords[_password];
 
         require(_letter._sender == msg.sender, "PostOffice: You are not the sender");
         require(_letter._deadline < block.timestamp, "PostOffice: The letter has not expired yet");
@@ -105,8 +148,8 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         emit TimeoutClaim(_id);
     }
 
-    function buildId(Annex[] memory _annex, PayInfo memory _payInfo, address _receiver, uint256 _deadline) public view returns (bytes32) {
-        return keccak256(abi.encode(_annex, _payInfo, _receiver, _deadline, block.prevrandao, block.timestamp));
+    function buildId(Annex[] memory _annex, string memory _message, string memory _secretWords, string memory _password, address _receiver, uint256 _deadline) public view returns (bytes32) {
+        return keccak256(abi.encode(_annex, _message, _secretWords, _password, _receiver, _deadline, block.prevrandao, block.timestamp));
     }
 
     receive() external payable {}
