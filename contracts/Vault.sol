@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
-contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
+contract Vault is Initializable, ERC721Holder, ERC1155Holder {
     uint8 public constant ETH_TYPE = 0;
     uint8 public constant ERC20_TYPE = 1;
     uint8 public constant ERC721_TYPE = 2;
@@ -74,13 +74,13 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
         address _receiver,
         uint256 _deadline
     ) external payable returns (bytes32 _letterId) {
-        require(passwords[_password] == bytes32(0), "PostOffice: Already exists");
+        require(passwords[_password] == bytes32(0), "Vault: Already exists");
         _letterId = buildId(_annex, _message, _secretWords, _password, _receiver, _deadline);
 
         bytes[] memory _keys = new bytes[](_annex.length);
 
         for (uint256 _i = 0; _i < _annex.length; _i++) {
-            if (_annex[_i]._type == ETH_TYPE) require(msg.value >= _annex[_i]._amount, "PostOffice: Insufficient amount of eth");
+            if (_annex[_i]._type == ETH_TYPE) require(msg.value >= _annex[_i]._amount, "Vault: Insufficient amount of eth");
             if (_annex[_i]._type == ERC20_TYPE) IERC20(_annex[_i]._address).transferFrom(msg.sender, address(this), _annex[_i]._amount);
             if (_annex[_i]._type == ERC721_TYPE) IERC721(_annex[_i]._address).transferFrom(msg.sender, address(this), _annex[_i]._id);
             if (_annex[_i]._type == ERC1155_TYPE) IERC1155(_annex[_i]._address).safeTransferFrom(msg.sender, address(this), _annex[_i]._id, _annex[_i]._amount, new bytes(0));
@@ -104,14 +104,14 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
 
     function claim(string memory _password) external {
         bytes32 _id = passwords[_password];
-        require(_id != bytes32(0), "PostOffice: This vault does not exist");
+        require(_id != bytes32(0), "Vault: This vault does not exist");
 
         Letter memory _letter = letters[_id];
         delete letters[_id];
         delete passwords[_password];
 
-        require(_letter._receiver == msg.sender, "PostOffice: You are not the recipient");
-        require(_letter._deadline > block.timestamp, "PostOffice: Letter has timed out");
+        require(_letter._receiver == msg.sender, "Vault: You are not the recipient");
+        require(_letter._deadline > block.timestamp, "Vault: Letter has timed out");
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
             bytes memory _annexId = abi.encodePacked(_id, _i);
@@ -127,14 +127,14 @@ contract PostOffice is Initializable, ERC721Holder, ERC1155Holder {
 
     function timeoutClaim(string memory _password) external {
         bytes32 _id = passwords[_password];
-        require(_id != bytes32(0), "PostOffice: This vault does not exist");
+        require(_id != bytes32(0), "Vault: This vault does not exist");
 
         Letter memory _letter = letters[_id];
         delete letters[_id];
         delete passwords[_password];
 
-        require(_letter._sender == msg.sender, "PostOffice: You are not the sender");
-        require(_letter._deadline < block.timestamp, "PostOffice: The letter has not expired yet");
+        require(_letter._sender == msg.sender, "Vault: You are not the sender");
+        require(_letter._deadline < block.timestamp, "Vault: The letter has not expired yet");
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
             bytes memory _annexId = abi.encodePacked(_id, _i);

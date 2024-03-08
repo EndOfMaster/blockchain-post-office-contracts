@@ -5,19 +5,19 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     const { deployer } = await getNamedAccounts();
     const chainId = (await getChainId()).toString();
 
-    let impl = await deploy('PostOfficeImpl', {
+    let impl = await deploy('VaultImpl', {
         from: deployer,
-        contract: 'PostOffice',
+        contract: 'Vault',
         args: [],
         log: true,
         skipIfAlreadyDeployed: true,
     });
 
-    const PostOffice = await ethers.getContractFactory('PostOffice')
-    const postOfficeImpl = PostOffice.attach(impl.address)
+    const Vault = await ethers.getContractFactory('Vault')
+    const vaultImpl = Vault.attach(impl.address)
 
-    const fragment = PostOffice.interface.getFunction('initialize()');
-    const postOfficeProxyData = postOfficeImpl.interface.encodeFunctionData(fragment, []);
+    const fragment = Vault.interface.getFunction('initialize()');
+    const vaultProxyData = vaultImpl.interface.encodeFunctionData(fragment, []);
 
     let proxyAdminAddress = '';
     if (proxyAdminAddress == '') {
@@ -27,10 +27,10 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     const ProxyAdmin = await hre.ethers.getContractFactory("ProxyAdmin");
     const proxyAdmin = ProxyAdmin.attach(proxyAdminAddress);
 
-    let proxy = await deploy('PostOffice', {
+    let proxy = await deploy('Vault', {
         from: deployer,
         contract: 'MyTransparentUpgradeableProxy',
-        args: [impl.address, proxyAdminAddress, postOfficeProxyData],
+        args: [impl.address, proxyAdminAddress, vaultProxyData],
         log: true,
         skipIfAlreadyDeployed: true,
     });
@@ -42,9 +42,9 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
 
     //BUG Unknown error. Check the call chain and find that the old impl address will be called.
     // if (implAddress !== ethers.AddressZero && implAddress !== impl.address) {
-    //     await proxyAdmin.upgradeAndCall(proxyAddress, impl.address, postOfficeProxyData);
+    //     await proxyAdmin.upgradeAndCall(proxyAddress, impl.address, vaultProxyData);
     //     console.log("upgrade Post Office impl done");
     // }
 
 };
-module.exports.tags = ['PostOffice'];
+module.exports.tags = ['Vault'];
