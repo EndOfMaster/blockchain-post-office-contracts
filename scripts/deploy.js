@@ -7,7 +7,9 @@
 const hre = require("hardhat");
 
 async function main() {
-  const a = hre.ethers.keccak256(hre.ethers.toUtf8Bytes("aaa"))
+  const b = hre.ethers.solidityPacked(["address", "string"], ["0x37D2AC60E6fB6B0c54969f75D10245Bff815bce3", "aaa"])
+  console.log(b);
+  const a = hre.ethers.keccak256(b)
   console.log(a);
 }
 

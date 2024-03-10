@@ -34,11 +34,11 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
         uint256 _deadline;
         string _message;
         string _secretWords;
-        string _password;
+        bytes32 _password;
     }
 
     mapping(bytes32 => Letter) private letters;
-    mapping(string => bytes32) private passwords;
+    mapping(bytes32 => bytes32) private passwords;
     mapping(bytes => Annex) private annex;
 
     function initialize() public initializer {}
@@ -54,7 +54,8 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
     }
 
     function letterAllParams(string memory _password) external view returns (Letter memory _letter, Annex[] memory _annexes) {
-        bytes32 _id = passwords[_password];
+        bytes32 __password = keccak256(abi.encodePacked(msg.sender, _password));
+        bytes32 _id = passwords[__password];
         if (_id == bytes32(0)) return (_letter, _annexes);
 
         _letter = letters[_id];
@@ -71,7 +72,7 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
         Annex[] memory _annex,
         string memory _message,
         string memory _secretWords,
-        string memory _password,
+        bytes32 _password,
         address _receiver,
         uint256 _deadline
     ) external payable returns (bytes32 _letterId) {
@@ -100,16 +101,18 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
             _deadline: _deadline
         });
         letters[_letterId] = _letter;
+        passwords[_password] = _letterId;
         emit SendLetter(_letterId, msg.sender, _receiver, _keys);
     }
 
     function claim(string memory _password) external {
-        bytes32 _id = passwords[_password];
+        bytes32 __password = keccak256(abi.encodePacked(msg.sender, _password));
+        bytes32 _id = passwords[__password];
         require(_id != bytes32(0), "Vault: This vault does not exist");
 
         Letter memory _letter = letters[_id];
         delete letters[_id];
-        delete passwords[_password];
+        delete passwords[__password];
 
         require(_letter._receiver == msg.sender, "Vault: You are not the recipient");
         require(_letter._deadline > block.timestamp, "Vault: Letter has timed out");
@@ -126,19 +129,20 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
         emit Claim(_id);
     }
 
-    function timeoutClaim(string memory _password) external {
-        bytes32 _id = passwords[_password];
-        require(_id != bytes32(0), "Vault: This vault does not exist");
+    function timeoutClaim(bytes32 _letterId) external {
+        require(_letterId != bytes32(0), "Vault: This vault does not exist");
 
-        Letter memory _letter = letters[_id];
-        delete letters[_id];
-        delete passwords[_password];
+        Letter memory _letter = letters[_letterId];
+        require(_letter._sender == msg.sender, "Vault: You must be the sender to retrieve expired attachments");
+
+        delete letters[_letterId];
+        delete passwords[_letter._password];
 
         require(_letter._sender == msg.sender, "Vault: You are not the sender");
         require(_letter._deadline < block.timestamp, "Vault: The letter has not expired yet");
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
-            bytes memory _annexId = abi.encodePacked(_id, _i);
+            bytes memory _annexId = abi.encodePacked(_letterId, _i);
             Annex memory _annex = annex[_annexId];
             if (_annex._type == ETH_TYPE) payable(msg.sender).transfer(_annex._amount);
             if (_annex._type == ERC20_TYPE) IERC20(_annex._address).transfer(msg.sender, _annex._amount);
@@ -146,10 +150,10 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
             if (_annex._type == ERC1155_TYPE) IERC1155(_annex._address).safeTransferFrom(address(this), msg.sender, _annex._id, _annex._amount, new bytes(0));
             delete annex[_annexId];
         }
-        emit TimeoutClaim(_id);
+        emit TimeoutClaim(_letterId);
     }
 
-    function buildId(Annex[] memory _annex, string memory _message, string memory _secretWords, string memory _password, address _receiver, uint256 _deadline) public view returns (bytes32) {
+    function buildId(Annex[] memory _annex, string memory _message, string memory _secretWords, bytes32 _password, address _receiver, uint256 _deadline) public view returns (bytes32) {
         return keccak256(abi.encode(_annex, _message, _secretWords, _password, _receiver, _deadline, block.prevrandao, block.timestamp));
     }
 
