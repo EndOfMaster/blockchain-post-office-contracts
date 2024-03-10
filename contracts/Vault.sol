@@ -45,11 +45,12 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
 
     // ================== view function ==================
 
-    function letterPublicParams(bytes32 _letterId) external view returns (address _sender, address _receiver, string memory _message) {
+    function letterPublicParams(bytes32 _letterId) external view returns (address _sender, address _receiver, string memory _message, uint256 _deadline) {
         Letter memory _letter = letters[_letterId];
         _sender = _letter._sender;
         _receiver = _letter._receiver;
         _message = _letter._message;
+        _deadline = _letter._deadline;
     }
 
     function letterAllParams(string memory _password) external view returns (Letter memory _letter, Annex[] memory _annexes) {
