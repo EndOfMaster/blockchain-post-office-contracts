@@ -16,7 +16,7 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
     uint8 public constant ERC721_TYPE = 2;
     uint8 public constant ERC1155_TYPE = 3;
 
-    event SendLetter(bytes32 _letterId, address _sender, address _receiver, bytes[] _annexKeys);
+    event SendLetter(bytes32 _letterId, address _sender, bytes[] _annexKeys);
     event Claim(bytes32 _letterId);
     event TimeoutClaim(bytes32 _letterId);
 
@@ -29,7 +29,6 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
 
     struct Letter {
         address _sender;
-        address _receiver;
         uint256 _annexAmount;
         uint256 _deadline;
         string _message;
@@ -45,10 +44,9 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
 
     // ================== view function ==================
 
-    function letterPublicParams(bytes32 _letterId) external view returns (address _sender, address _receiver, string memory _message, uint256 _deadline) {
+    function letterPublicParams(bytes32 _letterId) external view returns (address _sender, string memory _message, uint256 _deadline) {
         Letter memory _letter = letters[_letterId];
         _sender = _letter._sender;
-        _receiver = _letter._receiver;
         _message = _letter._message;
         _deadline = _letter._deadline;
     }
@@ -68,16 +66,9 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
 
     // ================== non-view function ==================
 
-    function sendLetter(
-        Annex[] memory _annex,
-        string memory _message,
-        string memory _secretWords,
-        bytes32 _password,
-        address _receiver,
-        uint256 _deadline
-    ) external payable returns (bytes32 _letterId) {
+    function sendLetter(Annex[] memory _annex, string memory _message, string memory _secretWords, bytes32 _password, uint256 _deadline) external payable returns (bytes32 _letterId) {
         require(passwords[_password] == bytes32(0), "Vault: Already exists");
-        _letterId = buildId(_annex, _message, _secretWords, _password, _receiver, _deadline);
+        _letterId = buildId(_annex, _message, _secretWords, _password, _deadline);
 
         bytes[] memory _keys = new bytes[](_annex.length);
 
@@ -91,18 +82,10 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
             _keys[_i] = _annexKey;
         }
 
-        Letter memory _letter = Letter({
-            _sender: msg.sender,
-            _annexAmount: _annex.length,
-            _receiver: _receiver,
-            _message: _message,
-            _secretWords: _secretWords,
-            _password: _password,
-            _deadline: _deadline
-        });
+        Letter memory _letter = Letter({ _sender: msg.sender, _annexAmount: _annex.length, _message: _message, _secretWords: _secretWords, _password: _password, _deadline: _deadline });
         letters[_letterId] = _letter;
         passwords[_password] = _letterId;
-        emit SendLetter(_letterId, msg.sender, _receiver, _keys);
+        emit SendLetter(_letterId, msg.sender, _keys);
     }
 
     function claim(string memory _password) external {
@@ -114,7 +97,6 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
         delete letters[_id];
         delete passwords[__password];
 
-        require(_letter._receiver == msg.sender, "Vault: You are not the recipient");
         require(_letter._deadline > block.timestamp, "Vault: Letter has timed out");
 
         for (uint256 _i = 0; _i < _letter._annexAmount; _i++) {
@@ -153,8 +135,8 @@ contract Vault is Initializable, ERC721Holder, ERC1155Holder {
         emit TimeoutClaim(_letterId);
     }
 
-    function buildId(Annex[] memory _annex, string memory _message, string memory _secretWords, bytes32 _password, address _receiver, uint256 _deadline) public view returns (bytes32) {
-        return keccak256(abi.encode(_annex, _message, _secretWords, _password, _receiver, _deadline, block.prevrandao, block.timestamp));
+    function buildId(Annex[] memory _annex, string memory _message, string memory _secretWords, bytes32 _password, uint256 _deadline) public view returns (bytes32) {
+        return keccak256(abi.encode(_annex, _message, _secretWords, _password, _deadline, block.prevrandao, block.timestamp));
     }
 
     receive() external payable {}
